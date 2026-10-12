@@ -86,7 +86,7 @@ jobs:
           load: true
           tags: ${{ env.IMAGE }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
       - name: Smoke test
         run: docker run --rm "$IMAGE" laser-cutterd --version
 
