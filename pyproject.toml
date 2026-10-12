@@ -1,0 +1,74 @@
+[project]
+name = "laser-cutterd"
+version = "0.0.0"
+description = "Monitors a Ruida-controlled laser cutter over the network and reports its status over MQTT, with Home Assistant discovery."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "John Romkey" }]
+# Keep in step with .python-version and the Dockerfile's python image.
+requires-python = ">=3.14"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "paho-mqtt>=2.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/romkey/laser-cutterd"
+Changelog = "https://github.com/romkey/laser-cutterd/blob/main/CHANGELOG.md"
+Issues = "https://github.com/romkey/laser-cutterd/issues"
+
+[project.scripts]
+laser-cutterd = "laser_cutterd.__main__:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=2.4.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.ruff.lint]
+select = [
+  "E", "W", "F",  # pycodestyle, pyflakes
+  "I",            # import order
+  "N",            # naming
+  "UP",           # modern syntax for requires-python
+  "B",            # likely bugs
+  "S",            # security
+  "C4", "SIM", "RET", "PTH",
+  "DTZ",          # timezone-aware datetimes
+  "T20",          # no print(); use logging
+  "LOG", "G",     # logging calls
+  "PT",           # pytest style
+  "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest works
+"scripts/**" = ["T20"]  # command-line tools print
+
+[tool.mypy]
+strict = true
+files = ["src", "tests", "scripts"]
+
+[tool.pytest.ini_options]
+addopts = ["--cov", "--cov-report=term-missing", "--strict-markers"]
+testpaths = ["tests"]
+xfail_strict = true
+
+[tool.coverage.run]
+source = ["laser_cutterd"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+skip_covered = true
+exclude_also = ['if __name__ == "__main__":']

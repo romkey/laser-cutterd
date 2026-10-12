@@ -1,0 +1,36 @@
+# Development: runs the app from your working tree, with the dev
+# dependencies installed.
+#
+#   cp .env.example .env              # then edit it
+#   docker compose up --build         # http://localhost:8000/status
+#   docker compose run --rm app bash  # a shell with everything installed
+#
+# Restart the app (docker compose restart app) to pick up code changes.
+# Tests, lint and production have their own compose files:
+#
+#   docker compose -f docker-compose.test.yaml run --rm test
+#   docker compose -f docker-compose.lint.yaml run --rm lint
+#   docker compose -f docker-compose.prod.yaml up -d
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    # uv run re-syncs /venv if pyproject.toml or uv.lock changed.
+    command: uv run --locked python -m laser_cutterd
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    # The controller replies to UDP 40200. Docker's NAT usually gets those
+    # replies back to the container; if the log says the controller isn't
+    # answering, replace `ports:` with `network_mode: host` (Linux, or
+    # Docker Desktop with host networking enabled).
+    volumes:
+      - .:/app
+      - uv-cache:/root/.cache/uv
+
+volumes:
+  uv-cache:

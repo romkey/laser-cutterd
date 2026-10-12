@@ -1,0 +1,40 @@
+# Production: runs the released image from ghcr.io. Configure it in .env
+# next to this file (see .env.example and docs/configuration.md).
+#
+#   docker compose -f docker-compose.prod.yaml up -d
+#   APP_VERSION=1.2.3 docker compose -f docker-compose.prod.yaml up -d   # pin a release
+#   docker compose -f docker-compose.prod.yaml build   # build the image locally instead
+
+services:
+  app:
+    image: ghcr.io/romkey/laser-cutterd:${APP_VERSION:-latest}
+    build:
+      context: .
+      target: production
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    # Host networking: the controller sends its replies to UDP 40200 on
+    # this host, which Docker's NAT can't be relied on to deliver. It also
+    # means HTTP is on port 8000 of the host itself (change PORT and the
+    # health check below together).
+    network_mode: host
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Least privilege: nothing to write but /tmp, no capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
