@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-12
+
 ### Added
 
 - Read-only Ruida UDP client (`ruida.py`): scrambling, checksums, memory reads.

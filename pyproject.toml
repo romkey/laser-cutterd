@@ -1,6 +1,6 @@
 [project]
 name = "laser-cutterd"
-version = "0.0.0"
+version = "0.1.0"
 description = "Monitors a Ruida-controlled laser cutter over the network and reports its status over MQTT, with Home Assistant discovery."
 readme = "README.md"
 license = "MIT"
