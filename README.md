@@ -143,8 +143,41 @@ off ("job done"), `sensor.laser_cutter_state` becoming `paused`, or
 - `laser-cutterd` runs the daemon until SIGTERM or Ctrl-C.
 - `laser-cutterd --dump` reads every value once and prints JSON with the
   address, raw bytes and decoded value (needs only `RUIDA_HOST`).
+- `--trace` (or `RUIDA_TRACE=true`) logs every datagram to and from the
+  controller: what was sent, each ACK and reply, timeouts and late
+  packets, decoded and as raw bytes.
+- `GET /` lists the endpoints.
 - `GET /healthz` returns `{"status": "ok", "version": ...}`;
   `GET /status` returns the latest state JSON.
+
+### Troubleshooting
+
+Once it reaches the controller the log says `controller is online`; until
+then it warns `controller isn't answering` (at startup, then every 10
+minutes), and `/status` shows `"online": false`. The usual cause in Docker
+is the controller's replies to UDP 40200 not reaching the container: run
+it with `network_mode: host`, as `docker-compose.prod.yaml` does (a bridge
+network with a `ports:` mapping isn't enough). Then check `RUIDA_HOST`, that
+the laser is on, and that nothing else on the host (LightBurn, RDWorks,
+another copy of this) is using UDP 40200.
+
+To see exactly what goes over the wire, trace a single pass:
+
+```bash
+docker compose -f docker-compose.prod.yaml run --rm app laser-cutterd --dump --trace
+```
+
+Lines starting `->` were sent; `<-` came back; `-- no reply` means nothing
+did. Sends with no `<-` lines at all mean the replies aren't reaching the
+daemon. The image also has `host`, `ping` and `nc` for checking the network
+from inside the container:
+
+```bash
+docker compose -f docker-compose.prod.yaml run --rm app ping -c 3 192.168.1.100
+```
+
+(`ping` without root relies on the host allowing unprivileged ICMP,
+`net.ipv4.ping_group_range`, which most current distributions do.)
 
 ### Caveats
 

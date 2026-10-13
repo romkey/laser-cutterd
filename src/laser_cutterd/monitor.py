@@ -21,6 +21,9 @@ from laser_cutterd.ruida import RuidaError, RuidaTimeoutError
 
 logger = logging.getLogger(__name__)
 
+# While the controller stays silent, say so again this often (seconds).
+OFFLINE_REMINDER = 600.0
+
 
 class Reader(Protocol):
     def read(self, address: int) -> bytes: ...
@@ -78,6 +81,7 @@ class Monitor:
         self.unsupported: set[str] = set()
         self._job_started_at: float | None = None
         self._updated: datetime | None = None
+        self._offline_warned_at: float | None = None
         # The latest snapshot, for other threads (the HTTP server) to read.
         self.latest = self.snapshot()
 
@@ -117,6 +121,7 @@ class Monitor:
             return self._offline()
         if not self.online:
             logger.info("controller is online")
+            self._offline_warned_at = None
         self.online = True
         self._updated = self.now()
         self._derive()
@@ -127,8 +132,20 @@ class Monitor:
         return Snapshot(self.online, dict(self.values), self._updated)
 
     def _offline(self) -> Snapshot:
+        now = self.clock()
         if self.online:
             logger.warning("controller stopped answering")
+            self._offline_warned_at = now
+        elif (
+            self._offline_warned_at is None
+            or now - self._offline_warned_at >= OFFLINE_REMINDER
+        ):
+            logger.warning(
+                "controller isn't answering: check RUIDA_HOST, that the laser "
+                "is on, and that its replies to UDP port RUIDA_LOCAL_PORT reach "
+                "this host (in Docker, use network_mode: host)"
+            )
+            self._offline_warned_at = now
         self.online = False
         self.latest = self.snapshot()
         return self.latest

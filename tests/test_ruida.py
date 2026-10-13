@@ -1,3 +1,4 @@
+import logging
 import socket
 
 import pytest
@@ -146,3 +147,50 @@ def test_open_is_idempotent_and_bind_failure_closes_socket() -> None:
     c.open()
     assert c._sock is sock
     c.close()
+
+
+def test_trace_logs_every_datagram(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="laser_cutterd.ruida.io")
+    sent = 0
+
+    def respond(command: bytes) -> list[bytes]:
+        nonlocal sent
+        sent += 1
+        if sent == 1:  # the first attempt goes unanswered
+            return []
+        return [bytes([ACK]), reply(0x0400, encode(5)), bytes([ENQ])]
+
+    with fake_controller(respond) as port:
+        c = RuidaClient("127.0.0.1", port=port, local_port=0, timeout=0.1, retries=1)
+        with c:
+            assert c.read_unsigned(0x0400) == 5
+            # The trailing ENQ arrives late; the next read drains it.
+            assert c.read_unsigned(0x0400) == 5
+
+    lines = [r.getMessage() for r in caplog.records if r.name.endswith(".io")]
+    assert lines[0].startswith(f"-> 127.0.0.1:{port} da 00 04 00 [read 0x0400] (wire ")
+    assert "-- no reply to read 0x0400 within 0.1 s" in lines
+    assert any("<- 127.0.0.1" in line and "[ACK]" in line for line in lines)
+    assert any("[0x0400 = 5]" in line for line in lines)
+    assert any("[ENQ; late, dropped]" in line for line in lines)
+
+
+def test_trace_is_silent_when_off(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="laser_cutterd.ruida.io")
+    with fake_controller(memory({0x0400: encode(1)})) as port, client(port) as c:
+        c.read(0x0400)
+    assert not [r for r in caplog.records if r.name.endswith(".io")]
+
+
+@pytest.mark.parametrize(
+    ("message", "label"),
+    [
+        (bytes([NAK]), "NAK (checksum error)"),
+        (bytes([ERR]), "ERR"),
+        (b"\xda\x00\x05\x7e", "read 0x057E"),
+        (b"\xda\x01\x04\x21" + encode(1500), "0x0421 = 1500"),
+        (b"\xa5\x50", "unknown"),
+    ],
+)
+def test_describe(message: bytes, label: str) -> None:
+    assert ruida.describe(message) == label

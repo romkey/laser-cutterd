@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 import pytest
@@ -192,3 +193,34 @@ def test_no_progress_without_a_length(unreadable: bool) -> None:
         memory[0x0620] = RuidaError("refused")
     monitor, _, _ = make(memory)
     assert monitor.poll(include_slow=False).values["job_progress"] is None
+
+
+def test_warns_when_controller_never_answers(caplog: pytest.LogCaptureFixture) -> None:
+    monitor, _, clock = make({})
+    monitor.poll(include_slow=False)
+    assert caplog.text.count("isn't answering") == 1
+
+    clock.t += 60
+    monitor.poll(include_slow=False)
+    assert caplog.text.count("isn't answering") == 1  # not every poll
+
+    clock.t += 600
+    monitor.poll(include_slow=False)
+    assert caplog.text.count("isn't answering") == 2  # a reminder
+
+
+def test_warns_once_when_controller_stops_answering(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    memory = idle_memory()
+    monitor, _, clock = make(memory)
+    monitor.poll(include_slow=False)
+    assert "controller is online" in caplog.text
+
+    del memory[0x0400]
+    monitor.poll(include_slow=False)
+    clock.t += 60
+    monitor.poll(include_slow=False)
+    assert caplog.text.count("stopped answering") == 1
+    assert "isn't answering" not in caplog.text

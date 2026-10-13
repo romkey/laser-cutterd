@@ -1,5 +1,6 @@
 """HTTP server.
 
+GET / lists the endpoints.
 GET /healthz reports that the daemon is up, and its version.
 GET /status returns the latest snapshot of the controller as JSON.
 """
@@ -31,7 +32,17 @@ class Handler(BaseHTTPRequestHandler):
     server_version = f"laser-cutterd/{__version__}"
 
     def do_GET(self) -> None:
-        if self.path == "/healthz":
+        if self.path == "/":
+            self.send_json(
+                HTTPStatus.OK,
+                {
+                    "name": "laser-cutterd",
+                    "version": __version__,
+                    "/status": "the controller's latest state, as JSON",
+                    "/healthz": "whether the daemon is up",
+                },
+            )
+        elif self.path == "/healthz":
             self.send_json(HTTPStatus.OK, {"status": "ok", "version": __version__})
         elif self.path == "/status":
             self.send_json(HTTPStatus.OK, self.server.status())

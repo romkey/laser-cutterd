@@ -36,6 +36,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="read every known value from the controller once, print it as "
         "JSON with the raw bytes, and exit (to check units against the panel)",
     )
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="log every datagram sent to and received from the controller "
+        "(same as RUIDA_TRACE=true)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -46,6 +52,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(
         level=settings.log_level,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    # The I/O trace is separate from LOG_LEVEL=DEBUG, which it would flood.
+    trace = args.trace or settings.ruida_trace
+    logging.getLogger("laser_cutterd.ruida.io").setLevel(
+        logging.DEBUG if trace else logging.INFO
     )
     client = make_client(settings)
     try:
@@ -117,10 +128,11 @@ def run(settings: Settings, client: RuidaClient) -> int:
         publisher.start()
 
     logger.info(
-        "laser-cutterd %s watching %s:%d; HTTP on %s:%d",
+        "laser-cutterd %s watching %s:%d (replies to UDP %d); HTTP on %s:%d",
         __version__,
         settings.ruida_host,
         settings.ruida_port,
+        settings.ruida_local_port,
         settings.host,
         server.server_port,
     )
