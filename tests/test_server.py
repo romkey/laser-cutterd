@@ -37,5 +37,12 @@ def test_status_returns_snapshot(base_url: str) -> None:
     assert get(f"{base_url}/status") == (200, {"online": True, "state": "idle"})
 
 
+def test_index_lists_endpoints(base_url: str) -> None:
+    status, body = get(f"{base_url}/")
+    assert status == 200
+    assert body["version"] == __version__
+    assert "/status" in body
+
+
 def test_unknown_path_is_404(base_url: str) -> None:
     assert get(f"{base_url}/nope") == (404, {"error": "not found"})

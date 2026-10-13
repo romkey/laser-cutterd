@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `GET /` lists the HTTP endpoints instead of returning 404.
+
+### Fixed
+
+- Warn when the controller doesn't answer, at startup and every 10 minutes
+  while it stays silent; before, an unreachable controller logged nothing.
+- The startup message names the UDP port the controller's replies come to.
+
 ## [0.1.1] - 2026-10-12
 
 ### Fixed

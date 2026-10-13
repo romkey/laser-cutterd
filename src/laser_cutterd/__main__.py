@@ -117,10 +117,11 @@ def run(settings: Settings, client: RuidaClient) -> int:
         publisher.start()
 
     logger.info(
-        "laser-cutterd %s watching %s:%d; HTTP on %s:%d",
+        "laser-cutterd %s watching %s:%d (replies to UDP %d); HTTP on %s:%d",
         __version__,
         settings.ruida_host,
         settings.ruida_port,
+        settings.ruida_local_port,
         settings.host,
         server.server_port,
     )
