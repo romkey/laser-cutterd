@@ -14,6 +14,7 @@ value stops the daemon with a message naming the variable.
 | `RUIDA_MAGIC` | `0x88` | Byte-scrambling key, decimal or `0x` hex, 0-255. `0x88` for RDC644x (including the RDC6442G), 654x, 633x and 320 boards; `0x11` for the 634XG |
 | `RUIDA_TIMEOUT` | `1.0` | Seconds to wait for each reply (at least 0.1) |
 | `RUIDA_RETRIES` | `2` | How many times to resend an unanswered read, 0-10 |
+| `RUIDA_TRACE` | `false` | `true` logs every datagram sent to and received from the controller, decoded and as raw bytes, on the `laser_cutterd.ruida.io` logger. Independent of `LOG_LEVEL` (which doesn't turn it on); `--trace` does the same |
 | `POLL_INTERVAL` | `2` | Seconds between reads of status, position and job progress (at least 0.5) |
 | `SLOW_POLL_INTERVAL` | `300` | Seconds between reads of the lifetime counters, flash space and settings (at least `POLL_INTERVAL`) |
 

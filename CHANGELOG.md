@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - `GET /` lists the HTTP endpoints instead of returning 404.
+- `RUIDA_TRACE=true` / `--trace` logs every datagram to and from the
+  controller, decoded and raw.
+- The image includes `host`, `ping` and `nc` for network troubleshooting.
 
 ### Fixed
 

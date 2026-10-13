@@ -33,6 +33,9 @@ import time
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+# Every datagram to and from the controller, at DEBUG. Off unless RUIDA_TRACE
+# (or --trace) is set; see __main__.py.
+io_logger = logging.getLogger(f"{__name__}.io")
 
 DEFAULT_PORT = 50200
 DEFAULT_LOCAL_PORT = 40200
@@ -44,6 +47,8 @@ ACK = 0xCC
 NAK = 0xCF  # checksum mismatch; resend
 ERR = 0xCD
 ENQ = 0xCE  # keep-alive
+
+_SINGLE_BYTE = {ACK: "ACK", NAK: "NAK (checksum error)", ERR: "ERR", ENQ: "ENQ"}
 
 READ_MEMORY = 0xDA
 MEMORY_READ_REQUEST = 0x00
@@ -129,6 +134,20 @@ def parse_memory_reply(reply: bytes, address: int) -> bytes | None:
     return None
 
 
+def describe(message: bytes) -> str:
+    """A short label for a command or reply, for the I/O trace."""
+    if len(message) == 1 and message[0] in _SINGLE_BYTE:
+        return _SINGLE_BYTE[message[0]]
+    if len(message) >= 4 and message[0] == READ_MEMORY:
+        address = int.from_bytes(message[2:4], "big")
+        if message[1] == MEMORY_READ_REQUEST:
+            return f"read 0x{address:04X}"
+        if message[1] == MEMORY_READ_REPLY:
+            value = message[4:]
+            return f"0x{address:04X} = {decode_unsigned(value[:5])}"
+    return "unknown"
+
+
 class RuidaClient:
     """Reads controller memory over UDP, one request at a time.
 
@@ -188,15 +207,19 @@ class RuidaClient:
     def read(self, address: int) -> bytes:
         """The raw value bytes stored at `address` (e.g. 0x0400)."""
         self.open()
-        datagram = packet(read_memory_command(address), self.scrambler)
+        command = read_memory_command(address)
+        datagram = packet(command, self.scrambler)
         self._drain()
         for attempt in range(self.retries + 1):
-            self._send(datagram)
+            self._send(datagram, command)
             try:
-                return self._await_reply(address, datagram)
+                return self._await_reply(address, datagram, command)
             except RuidaTimeoutError:
                 logger.debug(
                     "no reply reading 0x%04X (attempt %d)", address, attempt + 1
+                )
+                io_logger.debug(
+                    "-- no reply to read 0x%04X within %.1f s", address, self.timeout
                 )
         raise RuidaTimeoutError(
             f"{self.host}:{self.port} didn't answer a read of 0x{address:04X}"
@@ -214,24 +237,25 @@ class RuidaClient:
             raise RuidaError(f"short reply reading 0x{address:04X}: {value.hex()}")
         return value[:5]
 
-    def _await_reply(self, address: int, datagram: bytes) -> bytes:
+    def _await_reply(self, address: int, datagram: bytes, command: bytes) -> bytes:
         sock = self._socket()
         deadline = time.monotonic() + self.timeout
         while (remaining := deadline - time.monotonic()) > 0:
             sock.settimeout(remaining)
             try:
-                data, (sender, _port) = sock.recvfrom(2048)
+                data, (sender, sender_port) = sock.recvfrom(2048)
             except TimeoutError:
                 break
+            message = self.scrambler.unscramble(data)
+            self._trace_received(sender, sender_port, data, message)
             if sender != self._address:
                 logger.debug("ignoring datagram from %s", sender)
                 continue
-            message = self.scrambler.unscramble(data)
             if message == bytes([ACK]) or message == bytes([ENQ]):
                 continue
             if message == bytes([NAK]):
                 logger.debug("controller NAKed; resending")
-                self._send(datagram)
+                self._send(datagram, command)
                 continue
             if message == bytes([ERR]):
                 raise RuidaError(f"controller refused a read of 0x{address:04X}")
@@ -247,14 +271,41 @@ class RuidaClient:
         sock.setblocking(False)
         try:
             while True:
-                sock.recvfrom(2048)
+                data, (sender, sender_port) = sock.recvfrom(2048)
+                message = self.scrambler.unscramble(data)
+                self._trace_received(
+                    sender, sender_port, data, message, "late, dropped"
+                )
         except BlockingIOError:
             pass
         finally:
             sock.settimeout(self.timeout)
 
-    def _send(self, datagram: bytes) -> None:
+    def _send(self, datagram: bytes, command: bytes) -> None:
+        if io_logger.isEnabledFor(logging.DEBUG):
+            io_logger.debug(
+                "-> %s:%d %s [%s] (wire %s)",
+                self._address,
+                self.port,
+                command.hex(" "),
+                describe(command),
+                datagram.hex(" "),
+            )
         self._socket().sendto(datagram, (self._address, self.port))
+
+    def _trace_received(
+        self, sender: str, port: int, data: bytes, message: bytes, note: str = ""
+    ) -> None:
+        if io_logger.isEnabledFor(logging.DEBUG):
+            io_logger.debug(
+                "<- %s:%d %s [%s%s] (wire %s)",
+                sender,
+                port,
+                message.hex(" "),
+                describe(message),
+                f"; {note}" if note else "",
+                data.hex(" "),
+            )
 
     def _socket(self) -> socket.socket:
         if self._sock is None:

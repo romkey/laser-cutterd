@@ -28,6 +28,7 @@ def test_reads_environment() -> None:
         "RUIDA_MAGIC": "0x11",
         "RUIDA_TIMEOUT": "2.5",
         "RUIDA_RETRIES": "0",
+        "RUIDA_TRACE": "true",
         "POLL_INTERVAL": "5",
         "SLOW_POLL_INTERVAL": "60",
         "MQTT_HOST": "broker",
@@ -49,7 +50,7 @@ def test_reads_environment() -> None:
     }
     s = Settings.from_env(env)
     assert (s.ruida_port, s.ruida_local_port, s.ruida_magic) == (50201, 40201, 0x11)
-    assert (s.ruida_timeout, s.ruida_retries) == (2.5, 0)
+    assert (s.ruida_timeout, s.ruida_retries, s.ruida_trace) == (2.5, 0, True)
     assert (s.poll_interval, s.slow_poll_interval) == (5, 60)
     assert (s.mqtt_host, s.mqtt_port, s.mqtt_tls) == ("broker", 8883, True)
     assert (s.mqtt_username, s.mqtt_password) == ("laser", "dummy")

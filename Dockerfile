@@ -16,6 +16,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/venv/bin:$PATH \
     HOST=0.0.0.0
 WORKDIR /app
+# Network tools for finding out why the controller doesn't answer:
+# host (DNS), ping, nc (netcat). Debian's current versions; Renovate
+# updates the base image, which is what decides them.
+# hadolint ignore=DL3008
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends bind9-host iputils-ping netcat-openbsd \
+ && rm -rf /var/lib/apt/lists/*
 
 FROM base AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /uvx /bin/

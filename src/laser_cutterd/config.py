@@ -32,6 +32,7 @@ class Settings:
     ruida_magic: int = ruida.DEFAULT_MAGIC
     ruida_timeout: float = 1.0
     ruida_retries: int = 2
+    ruida_trace: bool = False
     poll_interval: float = 2.0
     slow_poll_interval: float = 300.0
 
@@ -98,6 +99,7 @@ class Settings:
             ruida_retries=_integer(
                 "RUIDA_RETRIES", env.get("RUIDA_RETRIES"), cls.ruida_retries, 0, 10
             ),
+            ruida_trace=_flag("RUIDA_TRACE", env.get("RUIDA_TRACE"), cls.ruida_trace),
             poll_interval=poll_interval,
             slow_poll_interval=slow_poll_interval,
             mqtt_host=_text(env.get("MQTT_HOST")) or None,

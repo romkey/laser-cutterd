@@ -1,4 +1,5 @@
 import json
+import logging
 import signal
 import socket
 import threading
@@ -60,7 +61,10 @@ def test_dump(
             "RUIDA_RETRIES": "0",
         }.items():
             monkeypatch.setenv(name, value)
-        assert cli.main(["--dump"]) == 0
+        assert cli.main(["--dump", "--trace"]) == 0
+    io = logging.getLogger("laser_cutterd.ruida.io")
+    assert io.level == logging.DEBUG
+    io.setLevel(logging.NOTSET)
     dumped = {entry["key"]: entry for entry in json.loads(capsys.readouterr().out)}
     assert dumped["status_raw"]["value"] == 1
     assert dumped["status_raw"]["address"] == "0x0400"
